@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Job Tracker - Professional Dashboard{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link href="/static/app.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="header-brand">
+                    <img src="/static/logo.svg" alt="Job Tracker" class="logo">
+                    <h1 class="brand-title">Job Tracker</h1>
+                </div>
+                
+                <div class="header-actions">
+                    {% if gmail_connected %}
+                    <div class="gmail-group">
+                        <span class="status-pill status-success">
+                            <i class="fas fa-check-circle"></i>
+                            Gmail Connected
+                        </span>
+                    </div>
+                    {% else %}
+                    <a href="/connect-gmail" class="btn btn-outline">
+                        <i class="fas fa-envelope"></i>
+                        Connect Gmail
+                    </a>
+                    {% endif %}
+                
+                    <div class="sync-group">
+                        <button id="syncBtn" class="btn btn-primary btn-md">
+                            <i class="fas fa-sync-alt" id="syncIcon"></i>
+                            <span>Sync Emails</span>
+                        </button>
+                        {% if gmail_connected %}
+                        <span class="last-sync" id="lastSync">
+                            <span class="sync-text">20 minutes ago</span>
+                        </span>
+                        {% endif %}
+                    </div>
+                
+                    <button id="themeToggle" class="btn btn-ghost btn-icon" aria-label="Toggle dark mode">
+                        <i class="fas fa-moon" id="themeIcon"></i>
+                    </button>
+                </div>
+                
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Progress Modal -->
+    <div id="progressModal" class="modal" role="dialog" aria-labelledby="progressTitle" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="progressTitle">
+                    <i class="fas fa-sync-alt animate-spin"></i>
+                    Syncing Emails
+                </h3>
+            </div>
+            <div class="modal-body">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p id="progressMessage" class="progress-message">Initializing...</p>
+                <div class="progress-log" id="progressLog" style="display: none;">
+                    <h4>Sync Log:</h4>
+                    <div class="log-content" id="logContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Job Modal -->
+    <div id="updateModal" class="modal" role="dialog" aria-labelledby="updateTitle" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <h3 id="updateTitle" class="modal-company-name">Company Name</h3>
+                    <p class="modal-position-name">Position Name</p>
+                </div>
+                <button class="btn btn-ghost modal-close" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="updateForm" class="modal-body">
+                <input type="hidden" id="updateJobId">
+                
+                <div class="form-group">
+                    <label for="updateStatus">Status</label>
+                    <div class="status-options">
+                        <label class="status-option">
+                            <input type="radio" name="status" value="applied">
+                            <span class="status-badge status-applied">
+                                <i class="fas fa-paper-plane"></i>
+                                Applied
+                            </span>
+                        </label>
+                        <label class="status-option">
+                            <input type="radio" name="status" value="interview">
+                            <span class="status-badge status-interview">
+                                <i class="fas fa-calendar-alt"></i>
+                                Interview
+                            </span>
+                        </label>
+                        <label class="status-option">
+                            <input type="radio" name="status" value="offer">
+                            <span class="status-badge status-offer">
+                                <i class="fas fa-trophy"></i>
+                                Offer
+                            </span>
+                        </label>
+                        <label class="status-option">
+                            <input type="radio" name="status" value="rejected">
+                            <span class="status-badge status-rejected">
+                                <i class="fas fa-times-circle"></i>
+                                Rejected
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="updateNote">Note (optional)</label>
+                    <textarea id="updateNote" name="note" placeholder="Add any additional notes..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="updateDate">Date</label>
+                    <input type="date" id="updateDate" name="date">
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline modal-close">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Job</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+    <!-- Scripts -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

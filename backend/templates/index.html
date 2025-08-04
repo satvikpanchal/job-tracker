@@ -1,125 +1,255 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Job Tracker</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 min-h-screen flex justify-center p-6">
-  <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-3xl">
-    
-    <!-- Header -->
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">Job Tracker</h1>
-      <div class="flex items-center gap-3">
-        {% if gmail_connected %}
-        <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
-          Gmail Connected
-        </span>
-        {% else %}
-        <form action="/connect-gmail" method="get">
-          <button class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm shadow">
-            Connect Gmail
-          </button>
+{% extends "layout.html" %}
+
+{% block content %}
+<!-- Add New Job -->
+<section class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-plus"></i>
+            Add New Job Application
+        </h2>
+    </div>
+    <div class="card-body">
+        <form action="/add" method="post" class="add-job-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="company">Company Name</label>
+                    <input type="text" id="company" name="company" placeholder="e.g. Google, Microsoft, Apple" required>
+                </div>
+                <div class="form-group">
+                    <label for="role">Job Role</label>
+                    <input type="text" id="role" name="role" placeholder="e.g. Software Engineer, Product Manager" required>
+                </div>
+                <div class="form-group form-group-button">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        Add Job
+                    </button>
+                </div>
+            </div>
+            <details class="form-details">
+                <summary>Additional Options</summary>
+                <div class="form-group">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" name="notes" placeholder="Any additional information about this application..."></textarea>
+                </div>
+            </details>
         </form>
-        {% endif %}
-        <button id="sync-btn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm shadow">
-          Sync Emails
-        </button>
-      </div>
     </div>
+</section>
 
-    <!-- Progress bar -->
-    <div id="progress-container" class="hidden mb-4">
-      <div class="w-full bg-gray-200 rounded-full h-3">
-        <div id="progress-bar" class="bg-purple-500 h-3 rounded-full" style="width: 0%"></div>
-      </div>
-      <p id="progress-text" class="text-sm text-gray-600 mt-1"></p>
+<!-- Job Applications -->  
+<section class="card">
+    <div class="card-header">
+        <div class="card-title-row">
+            <h2 class="card-title">
+                <i class="fas fa-briefcase"></i>
+                Job Applications
+            </h2>
+            <div class="table-controls">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Search companies or roles...">
+                </div>
+                <div class="filter-dropdown">
+                    <button class="btn btn-outline" id="filterBtn">
+                        <i class="fas fa-filter"></i>
+                        Filter
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="dropdown-menu" id="filterMenu">
+                        <label class="dropdown-item">
+                            <input type="checkbox" value="all" checked> All Status
+                        </label>
+                        <label class="dropdown-item">
+                            <input type="checkbox" value="applied"> Applied
+                        </label>
+                        <label class="dropdown-item">
+                            <input type="checkbox" value="interview"> Interview
+                        </label>
+                        <label class="dropdown-item">
+                            <input type="checkbox" value="offer"> Offer
+                        </label>
+                        <label class="dropdown-item">
+                            <input type="checkbox" value="rejected"> Rejected
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <!-- Add Job Form -->
-    <form action="/add" method="post" class="flex gap-3 mb-6">
-      <input name="company" placeholder="Company" 
-             class="border border-gray-300 rounded-lg p-3 w-1/2 focus:outline-none focus:ring focus:ring-blue-200" required>
-      <input name="role" placeholder="Role" 
-             class="border border-gray-300 rounded-lg p-3 w-1/2 focus:outline-none focus:ring focus:ring-blue-200" required>
-      <button class="bg-blue-500 hover:bg-blue-600 text-white px-5 rounded-lg shadow">Add</button>
-    </form>
-
-    <!-- Jobs Table -->
-    <div class="overflow-x-auto">
-      <table class="w-full table-auto border-collapse">
-        <thead>
-          <tr class="bg-gray-100 text-gray-700 text-sm uppercase">
-            <th class="py-3 px-4 text-left">Company</th>
-            <th class="py-3 px-4 text-left">Role</th>
-            <th class="py-3 px-4 text-left">Status</th>
-            <th class="py-3 px-4"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for job in jobs %}
-          <tr class="border-b">
-            <td class="py-3 px-4">{{ job.company }}</td>
-            <td class="py-3 px-4">{{ job.role }}</td>
-            <td class="py-3 px-4">
-              <form action="/update/{{ job.id }}" method="post" class="flex items-center gap-2">
-                <select name="status" class="border border-gray-300 rounded-lg p-1 text-sm">
-                  <option value="applied" {% if job.status == 'applied' %}selected{% endif %}>Applied</option>
-                  <option value="interview" {% if job.status == 'interview' %}selected{% endif %}>Interview</option>
-                  <option value="offer" {% if job.status == 'offer' %}selected{% endif %}>Offer</option>
-                  <option value="rejected" {% if job.status == 'rejected' %}selected{% endif %}>Rejected</option>
+    
+    <div class="card-body">
+        {% if jobs %}
+        <div class="table-container">
+            <table class="jobs-table" id="jobsTable">
+                <thead>
+                    <tr>
+                        <th>
+                            <input type="checkbox" id="selectAll" aria-label="Select all jobs">
+                        </th>
+                        <th>Company</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Applied On</th>
+                        <th>Last Update</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="jobsTableBody">
+                    {% for job in jobs %}
+                    <tr data-job-id="{{ job.id }}" data-status="{{ job.status }}">
+                        <td>
+                            <input type="checkbox" class="job-checkbox" value="{{ job.id }}">
+                        </td>
+                        <td class="company-cell">
+                            <div class="company-name">{{ job.company }}</div>
+                        </td>
+                        <td class="role-cell">{{ job.role }}</td>
+                        <td class="status-cell">
+                            <span class="status-badge status-{{ job.status }}">
+                                {% if job.status == 'applied' %}
+                                    <i class="fas fa-paper-plane"></i> Applied
+                                {% elif job.status == 'interview' %}
+                                    <i class="fas fa-calendar-alt"></i> Interview
+                                {% elif job.status == 'offer' %}
+                                    <i class="fas fa-trophy"></i> Offer
+                                {% elif job.status == 'rejected' %}
+                                    <i class="fas fa-times-circle"></i> Rejected
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td class="date-cell">{{ job.applied_date or 'N/A' }}</td>
+                        <td class="date-cell">{{ job.last_update or 'N/A' }}</td>
+                        <td class="notes-cell" data-company="{{ job.company }}" data-role="{{ job.role }}" data-note="{{ job.note or '' }}">
+                            {% if job.note %}
+                                <span class="note-text">{{ job.note[:20] }}{% if job.note|length > 20 %}...{% endif %}</span>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td class="actions-cell">
+                            <button class="btn btn-ghost btn-sm update-btn" data-job-id="{{ job.id }}" data-company="{{ job.company }}" data-role="{{ job.role }}" data-status="{{ job.status }}" aria-label="Update {{ job.company }}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-ghost btn-sm btn-danger delete-btn" data-job-id="{{ job.id }}" data-company="{{ job.company }}" aria-label="Delete {{ job.company }}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Bulk Actions -->
+        <div class="bulk-actions" id="bulkActions" style="display: none;">
+            <div class="bulk-actions-content">
+                <span class="selected-count" id="selectedCount">0 selected</span>
+                <div class="bulk-buttons">
+                    <button class="btn btn-outline btn-sm" id="bulkUpdateBtn">
+                        <i class="fas fa-edit"></i> Update Status
+                    </button>
+                    <button class="btn btn-outline btn-sm btn-danger" id="bulkDeleteBtn">
+                        <i class="fas fa-trash"></i> Delete Selected
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Pagination -->
+        <div class="pagination-container">
+            <div class="pagination-info">
+                <span id="paginationInfo">Showing 1-10 of 10 jobs</span>
+            </div>
+            <div class="pagination-controls">
+                <label for="pageSize">Show:</label>
+                <select id="pageSize">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
                 </select>
-                <button class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-xs shadow">
-                  Update
-                </button>
-              </form>
-            </td>
-            <td class="py-3 px-4">
-              <form action="/delete/{{ job.id }}" method="post">
-                <button class="bg-red-400 hover:bg-red-500 text-white px-2 py-1 rounded-lg text-xs shadow">
-                  Delete
-                </button>
-              </form>
-            </td>
-          </tr>
-          {% else %}
-          <tr>
-            <td colspan="4" class="text-center text-gray-500 py-4">No jobs yet...</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+                <div class="pagination-buttons">
+                    <button class="btn btn-ghost btn-sm" id="prevPage" disabled>
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span class="page-numbers" id="pageNumbers">1</span>
+                    <button class="btn btn-ghost btn-sm" id="nextPage" disabled>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i class="fas fa-briefcase"></i>
+            </div>
+            <h3>No job applications yet</h3>
+            <p>Start by adding your first job application above</p>
+        </div>
+        {% endif %}
     </div>
-  </div>
+</section>
 
-  <script>
-    const syncBtn = document.getElementById("sync-btn");
-    const progressContainer = document.getElementById("progress-container");
-    const progressBar = document.getElementById("progress-bar");
-    const progressText = document.getElementById("progress-text");
+<!-- Mobile Card View -->
+<div class="mobile-cards" id="mobileCards" style="display: none;">
+    {% for job in jobs %}
+    <div class="job-card" data-job-id="{{ job.id }}" data-status="{{ job.status }}">
+        <div class="job-card-header">
+            <h3>{{ job.company }}</h3>
+            <span class="status-badge status-{{ job.status }}">
+                {% if job.status == 'applied' %}
+                    <i class="fas fa-paper-plane"></i> Applied
+                {% elif job.status == 'interview' %}
+                    <i class="fas fa-calendar-alt"></i> Interview
+                {% elif job.status == 'offer' %}
+                    <i class="fas fa-trophy"></i> Offer
+                {% elif job.status == 'rejected' %}
+                    <i class="fas fa-times-circle"></i> Rejected
+                {% endif %}
+            </span>
+        </div>
+        <div class="job-card-body">
+            <p class="job-role">{{ job.role }}</p>
+            <div class="job-dates">
+                <span>Applied: {{ job.applied_date or 'N/A' }}</span>
+                <span>Updated: {{ job.last_update or 'N/A' }}</span>
+            </div>
+        </div>
+        <div class="job-card-actions">
+            <button class="btn btn-outline btn-sm update-btn" data-job-id="{{ job.id }}" data-company="{{ job.company }}" data-role="{{ job.role }}" data-status="{{ job.status }}">
+                <i class="fas fa-edit"></i> Update
+            </button>
+            <button class="btn btn-outline btn-sm btn-danger delete-btn" data-job-id="{{ job.id }}" data-company="{{ job.company }}">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
 
-    syncBtn.addEventListener("click", async () => {
-      progressContainer.classList.remove("hidden");
-      progressBar.style.width = "0%";
-      progressText.textContent = "Starting sync...";
+<!-- Notes Modal -->
+<div class="notes-modal" id="notesModal">
+    <div class="notes-modal-content">
+        <div class="notes-modal-header">
+            <h3 class="notes-modal-title">
+                <i class="fas fa-sticky-note"></i>
+                Job Notes
+            </h3>
+            <button class="btn btn-ghost notes-modal-close" onclick="closeNotesModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="notes-modal-body">
+            <div class="notes-modal-company" id="notesModalCompany"></div>
+            <div class="notes-modal-role" id="notesModalRole"></div>
+            <div class="notes-modal-note" id="notesModalNote"></div>
+        </div>
+    </div>
+</div>
 
-      const eventSource = new EventSource("/sync-stream");
-      eventSource.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        if (data.status === "progress") {
-          progressBar.style.width = `${data.percent}%`;
-          progressText.textContent = `Processing batch ${data.batch}/${data.total}`;
-        } else if (data.status === "done") {
-          progressBar.style.width = "100%";
-          progressText.textContent = "Sync complete!";
-          setTimeout(() => {
-            window.location.reload();
-          }, 1500);
-          eventSource.close();
-        }
-      };
-    });
-  </script>
-</body>
-</html>
+{% endblock %}
