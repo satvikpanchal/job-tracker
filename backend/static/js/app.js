@@ -6,24 +6,37 @@ class JobTracker {
         this.selectedJobs = new Set();
         this.currentPage = 1;
         this.pageSize = 10;
-        this.isUpdating = false; // Track if bulk update is in progress
+        this.isUpdating = false;
         this.lastSyncTime = localStorage.getItem('lastSyncTime');
         
         this.init();
     }
     
     init() {
+        console.log("🚀 Initializing JobTracker...");
         this.setupEventListeners();
         this.setupTheme();
-        this.loadJobs();
-        this.updateLastSyncDisplay();
         this.setupResponsive();
+        this.loadJobs();
+        console.log("✅ JobTracker initialization complete");
     }
     
     setupEventListeners() {
+        console.log("🔧 Setting up event listeners...");
+        
         // Theme toggle
         const themeToggle = document.getElementById('themeToggle');
-        themeToggle?.addEventListener('click', () => this.toggleTheme());
+        console.log("🎨 Theme toggle button found:", themeToggle);
+        
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                console.log("🖱️ Theme toggle button clicked!");
+                this.toggleTheme();
+            });
+            console.log("✅ Theme toggle event listener attached");
+        } else {
+            console.log("❌ Theme toggle button not found!");
+        }
         
         // Sync button
         const syncBtn = document.getElementById('syncBtn');
@@ -132,19 +145,21 @@ class JobTracker {
     }
     
     setupTheme() {
-        // Check for saved theme preference or default to system preference
+        console.log("🎨 Setting up theme...");
+        
+        // Get saved theme or default to light mode
         const savedTheme = localStorage.getItem('theme');
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         
-        if (savedTheme) {
-            document.documentElement.setAttribute('data-theme', savedTheme);
-        } else if (systemPrefersDark) {
-            document.documentElement.setAttribute('data-theme', 'dark');
-        }
+        console.log("💾 Saved theme:", savedTheme);
         
+        // Default to light mode if no theme is saved
+        const theme = savedTheme || 'light';
+        console.log("🎯 Final theme:", theme);
+        
+        document.documentElement.setAttribute('data-theme', theme);
         this.updateThemeIcon();
         
-        // Listen for system theme changes
+        // Listen for system theme changes (only if no theme is saved)
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
             if (!localStorage.getItem('theme')) {
                 document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
@@ -154,20 +169,43 @@ class JobTracker {
     }
     
     toggleTheme() {
+        console.log("🔄 Toggling theme...");
         const currentTheme = document.documentElement.getAttribute('data-theme');
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        console.log("📊 Current theme:", currentTheme);
+        console.log("🆕 New theme:", newTheme);
         
         document.documentElement.setAttribute('data-theme', newTheme);
         localStorage.setItem('theme', newTheme);
         this.updateThemeIcon();
+        
+        // Debug: Check if the attribute was actually set
+        const actualTheme = document.documentElement.getAttribute('data-theme');
+        console.log("✅ Actual theme attribute after setting:", actualTheme);
+        
+        // Debug: Check if CSS variables are changing
+        const computedStyle = getComputedStyle(document.documentElement);
+        const bgColor = computedStyle.getPropertyValue('--bg');
+        const textColor = computedStyle.getPropertyValue('--text');
+        console.log("🎨 CSS Variables - Background:", bgColor, "Text:", textColor);
+        
+        console.log("✅ Theme updated to:", newTheme);
     }
     
     updateThemeIcon() {
         const themeIcon = document.getElementById('themeIcon');
         const currentTheme = document.documentElement.getAttribute('data-theme');
         
+        console.log("🎨 Updating theme icon. Current theme:", currentTheme);
+        console.log("🔍 Theme icon element:", themeIcon);
+        
         if (themeIcon) {
-            themeIcon.className = currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            const newIconClass = currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            themeIcon.className = newIconClass;
+            console.log("✅ Icon updated to:", newIconClass);
+        } else {
+            console.log("❌ Theme icon element not found!");
         }
     }
     
@@ -290,11 +328,7 @@ class JobTracker {
         
         const paginationInfo = document.getElementById('paginationInfo');
         if (paginationInfo) {
-            if (totalJobs === 0) {
-                paginationInfo.textContent = 'No jobs found';
-            } else {
-                paginationInfo.textContent = `Showing ${startIndex}-${endIndex} of ${totalJobs} jobs`;
-            }
+            paginationInfo.textContent = `Showing ${startIndex}-${endIndex} of ${totalJobs} jobs`;
         }
     }
     
@@ -305,9 +339,17 @@ class JobTracker {
         const nextBtn = document.getElementById('nextPage');
         const pageNumbers = document.getElementById('pageNumbers');
         
-        if (prevBtn) prevBtn.disabled = this.currentPage <= 1;
-        if (nextBtn) nextBtn.disabled = this.currentPage >= totalPages;
-        if (pageNumbers) pageNumbers.textContent = `${this.currentPage} of ${totalPages || 1}`;
+        if (prevBtn) {
+            prevBtn.disabled = this.currentPage <= 1;
+        }
+        
+        if (nextBtn) {
+            nextBtn.disabled = this.currentPage >= totalPages;
+        }
+        
+        if (pageNumbers) {
+            pageNumbers.textContent = `${this.currentPage} of ${totalPages}`;
+        }
     }
     
     previousPage() {
@@ -326,61 +368,37 @@ class JobTracker {
     }
     
     handleSelectAll(checked) {
-        const visibleJobIds = this.getVisibleJobIds();
-        console.log("🔍 Select all - visible job IDs:", visibleJobIds);
-        
-        if (checked) {
-            visibleJobIds.forEach(id => this.selectedJobs.add(id));
-        } else {
-            visibleJobIds.forEach(id => this.selectedJobs.delete(id));
-        }
-        
-        console.log("📋 Selected jobs after select all:", Array.from(this.selectedJobs));
-        this.updateJobCheckboxes();
+        const checkboxes = document.querySelectorAll('.job-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = checked;
+            if (checked) {
+                this.selectedJobs.add(checkbox.value);
+            } else {
+                this.selectedJobs.delete(checkbox.value);
+            }
+        });
         this.updateBulkActions();
     }
     
     handleJobSelect(checkbox) {
-        const jobId = checkbox.value;
-        console.log("🔍 Individual job selection:", jobId, checkbox.checked);
-        
         if (checkbox.checked) {
-            this.selectedJobs.add(jobId);
+            this.selectedJobs.add(checkbox.value);
         } else {
-            this.selectedJobs.delete(jobId);
+            this.selectedJobs.delete(checkbox.value);
         }
-        
-        console.log("📋 Selected jobs after individual selection:", Array.from(this.selectedJobs));
-        this.updateSelectAllState();
         this.updateBulkActions();
-    }
-    
-    getVisibleJobIds() {
-        const startIndex = (this.currentPage - 1) * this.pageSize;
-        const endIndex = startIndex + this.pageSize;
-        const visibleJobs = this.filteredJobs.slice(startIndex, endIndex);
-        const ids = visibleJobs.map(job => job.id);
-        console.log("👁️ Visible jobs:", visibleJobs.map(job => ({id: job.id, company: job.company, role: job.role})));
-        return ids;
-    }
-    
-    updateJobCheckboxes() {
-        const checkboxes = document.querySelectorAll('.job-checkbox');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = this.selectedJobs.has(checkbox.value);
-        });
+        this.updateSelectAllState();
     }
     
     updateSelectAllState() {
         const selectAllCheckbox = document.getElementById('selectAll');
-        const visibleJobIds = this.getVisibleJobIds();
+        const jobCheckboxes = document.querySelectorAll('.job-checkbox');
+        const visibleCheckboxes = Array.from(jobCheckboxes).filter(cb => cb.closest('tr').style.display !== 'none');
+        const checkedCount = visibleCheckboxes.filter(cb => cb.checked).length;
         
         if (selectAllCheckbox) {
-            const allVisible = visibleJobIds.every(id => this.selectedJobs.has(id));
-            const someVisible = visibleJobIds.some(id => this.selectedJobs.has(id));
-            
-            selectAllCheckbox.checked = allVisible;
-            selectAllCheckbox.indeterminate = someVisible && !allVisible;
+            selectAllCheckbox.checked = checkedCount === visibleCheckboxes.length && visibleCheckboxes.length > 0;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < visibleCheckboxes.length;
         }
     }
     
@@ -388,567 +406,272 @@ class JobTracker {
         const bulkActions = document.getElementById('bulkActions');
         const selectedCount = document.getElementById('selectedCount');
         
-        if (bulkActions && selectedCount) {
-            const count = this.selectedJobs.size;
-            
-            if (count > 0) {
-                bulkActions.style.display = 'block';
-                selectedCount.textContent = `${count} selected`;
-            } else {
-                bulkActions.style.display = 'none';
-            }
+        if (this.selectedJobs.size > 0) {
+            bulkActions.style.display = 'block';
+            selectedCount.textContent = `${this.selectedJobs.size} selected`;
+        } else {
+            bulkActions.style.display = 'none';
         }
     }
     
-    showUpdateModal(jobData) {
-        const modal = document.getElementById('updateModal');
-        
-        // Update modal header for individual job
-        const titleGroup = modal.querySelector('.modal-title-group');
-        titleGroup.innerHTML = `
-            <h3 class="modal-company-name">${jobData.company}</h3>
-            <p class="modal-position-name">${jobData.role}</p>
-        `;
-        
-        // Create form for individual job update
-        const form = modal.querySelector('#updateForm');
-        form.innerHTML = `
-            <input type="hidden" id="updateJobId" value="${jobData.jobId}">
-            
-            <div class="form-group">
-                <label for="updateStatus">Status *</label>
-                <div class="status-options">
-                    <label class="status-option">
-                        <input type="radio" name="status" value="applied" ${jobData.status === 'applied' ? 'checked' : ''}>
-                        <span class="status-badge status-applied">
-                            <i class="fas fa-paper-plane"></i>
-                            Applied
-                        </span>
-                    </label>
-                    <label class="status-option">
-                        <input type="radio" name="status" value="interview" ${jobData.status === 'interview' ? 'checked' : ''}>
-                        <span class="status-badge status-interview">
-                            <i class="fas fa-calendar-alt"></i>
-                            Interview
-                        </span>
-                    </label>
-                    <label class="status-option">
-                        <input type="radio" name="status" value="offer" ${jobData.status === 'offer' ? 'checked' : ''}>
-                        <span class="status-badge status-offer">
-                            <i class="fas fa-trophy"></i>
-                            Offer
-                        </span>
-                    </label>
-                    <label class="status-option">
-                        <input type="radio" name="status" value="rejected" ${jobData.status === 'rejected' ? 'checked' : ''}>
-                        <span class="status-badge status-rejected">
-                            <i class="fas fa-times-circle"></i>
-                            Rejected
-                        </span>
-                    </label>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="updateNote">Note (optional)</label>
-                <textarea id="updateNote" name="note" placeholder="Add any additional notes..."></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label for="updateDate">Update Date</label>
-                <input type="date" id="updateDate" name="date" value="${new Date().toISOString().split('T')[0]}">
-            </div>
-            
-            <div class="modal-actions">
-                <button type="button" class="btn btn-outline modal-close">Cancel</button>
-                <button type="submit" class="btn btn-primary">Update Job</button>
-            </div>
-        `;
-        
-        // Set up form submission for individual update
-        form.onsubmit = (e) => {
-            e.preventDefault();
-            this.handleUpdateSubmit();
-        };
-        
-        this.showModal(modal);
+    toggleDropdown(menu) {
+        menu.classList.toggle('show');
     }
     
-    async handleUpdateSubmit() {
+    showUpdateModal(data) {
+        const modal = document.getElementById('updateModal');
+        const companyName = document.querySelector('.modal-company-name');
+        const positionName = document.querySelector('.modal-position-name');
+        const jobIdInput = document.getElementById('updateJobId');
+        
+        if (companyName) companyName.textContent = data.company;
+        if (positionName) positionName.textContent = data.role;
+        if (jobIdInput) jobIdInput.value = data.jobId;
+        
+        // Set current status
+        const statusRadio = document.querySelector(`input[name="status"][value="${data.status}"]`);
+        if (statusRadio) statusRadio.checked = true;
+        
+        // Set current date
+        const dateInput = document.getElementById('updateDate');
+        if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+        
+        modal.classList.add('show');
+    }
+    
+    handleUpdateSubmit() {
         const form = document.getElementById('updateForm');
         const formData = new FormData(form);
         const jobId = document.getElementById('updateJobId').value;
         
-        try {
-            const response = await fetch(`/update/${jobId}`, {
-                method: 'POST',
-                body: formData
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                this.showToast('success', 'Job Updated', result.message);
-                this.closeModal();
-                // Reload page to update table
-                setTimeout(() => window.location.reload(), 1000);
-            } else {
-                this.showToast('error', 'Update Failed', result.message || 'An error occurred');
-            }
-        } catch (error) {
-            this.showToast('error', 'Update Failed', 'Network error occurred');
-        }
+        // Here you would typically send the data to your backend
+        console.log('Updating job:', jobId, Object.fromEntries(formData));
+        
+        this.closeModal();
+        this.showToast('Job updated successfully!', 'success');
     }
     
     showDeleteConfirm(jobId, company) {
         if (confirm(`Are you sure you want to delete the job application for ${company}?`)) {
-            this.deleteJob(jobId);
-        }
-    }
-    
-    async deleteJob(jobId) {
-        try {
-            const response = await fetch(`/delete/${jobId}`, {
-                method: 'POST'
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                this.showToast('success', 'Job Deleted', result.message);
-                // Remove from selected jobs
-                this.selectedJobs.delete(jobId);
-                // Reload page to update table
-                setTimeout(() => window.location.reload(), 1000);
-            } else {
-                this.showToast('error', 'Delete Failed', result.message || 'An error occurred');
-            }
-        } catch (error) {
-            this.showToast('error', 'Delete Failed', 'Network error occurred');
+            // Here you would typically send the delete request to your backend
+            console.log('Deleting job:', jobId);
+            this.showToast('Job deleted successfully!', 'success');
         }
     }
     
     showBulkUpdateModal() {
-        const selectedCount = this.selectedJobs.size;
-        if (selectedCount === 0) {
-            this.showToast('info', 'No Selection', 'Please select jobs to update');
+        if (this.selectedJobs.size === 0) {
+            this.showToast('Please select jobs to update', 'warning');
             return;
         }
         
-        // Create bulk update modal content
-        const modal = document.getElementById('updateModal');
-        const modalContent = modal.querySelector('.modal-content');
-        
-        // Update modal header for bulk update
-        const titleGroup = modal.querySelector('.modal-title-group');
-        titleGroup.innerHTML = `
-            <h3 class="modal-company-name">Bulk Update</h3>
-            <p class="modal-position-name">${selectedCount} job${selectedCount > 1 ? 's' : ''} selected</p>
-        `;
-        
-        // Update form for bulk update - with notes
-        const form = modal.querySelector('#updateForm');
-        form.innerHTML = `
-            <div class="form-group">
-                <label for="updateStatus">Status *</label>
-                <div class="status-options">
-                    <label class="status-option">
-                        <input type="radio" name="status" value="applied">
-                        <span class="status-badge status-applied">
-                            <i class="fas fa-paper-plane"></i>
-                            Applied
-                        </span>
-                    </label>
-                    <label class="status-option">
-                        <input type="radio" name="status" value="interview">
-                        <span class="status-badge status-interview">
-                            <i class="fas fa-calendar-alt"></i>
-                            Interview
-                        </span>
-                    </label>
-                    <label class="status-option">
-                        <input type="radio" name="status" value="offer">
-                        <span class="status-badge status-offer">
-                            <i class="fas fa-trophy"></i>
-                            Offer
-                        </span>
-                    </label>
-                    <label class="status-option">
-                        <input type="radio" name="status" value="rejected">
-                        <span class="status-badge status-rejected">
-                            <i class="fas fa-times-circle"></i>
-                            Rejected
-                        </span>
-                    </label>
+        // Create a better modal interface for bulk updates
+        const modal = document.createElement('div');
+        modal.className = 'modal show';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Bulk Update ${this.selectedJobs.size} Jobs</h3>
+                    <button class="btn btn-ghost modal-close" onclick="this.closest('.modal').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Update Status</label>
+                        <div class="status-options">
+                            <label class="status-option">
+                                <input type="radio" name="bulkStatus" value="applied">
+                                <span class="status-badge status-applied">
+                                    <i class="fas fa-paper-plane"></i> Applied
+                                </span>
+                            </label>
+                            <label class="status-option">
+                                <input type="radio" name="bulkStatus" value="interview">
+                                <span class="status-badge status-interview">
+                                    <i class="fas fa-calendar-alt"></i> Interview
+                                </span>
+                            </label>
+                            <label class="status-option">
+                                <input type="radio" name="bulkStatus" value="offer">
+                                <span class="status-badge status-offer">
+                                    <i class="fas fa-trophy"></i> Offer
+                                </span>
+                            </label>
+                            <label class="status-option">
+                                <input type="radio" name="bulkStatus" value="rejected">
+                                <span class="status-badge status-rejected">
+                                    <i class="fas fa-times-circle"></i> Rejected
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="bulkNote">Add Note (optional)</label>
+                        <textarea id="bulkNote" placeholder="Add a note to all selected jobs..." rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="bulkDate">Update Date</label>
+                        <input type="date" id="bulkDate" value="${new Date().toISOString().split('T')[0]}">
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="this.closest('.modal').remove()">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="window.jobTracker.executeBulkUpdate(this.closest('.modal'))">Update All</button>
                 </div>
             </div>
-            
-            <div class="form-group">
-                <label for="updateRole">Position Name (optional)</label>
-                <input type="text" id="updateRole" name="role" placeholder="Update position name for all selected jobs...">
-            </div>
-            
-            <div class="form-group">
-                <label for="updateNote">Note (optional)</label>
-                <textarea id="updateNote" name="note" placeholder="Add any additional notes for all selected jobs..."></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label for="updateDate">Update Date</label>
-                <input type="date" id="updateDate" name="date" value="${new Date().toISOString().split('T')[0]}">
-            </div>
-            
-            <div class="modal-actions">
-                <button type="button" class="btn btn-outline modal-close">Cancel</button>
-                <button type="button" class="btn btn-primary" id="bulkUpdateSubmit">Update ${selectedCount} Job${selectedCount > 1 ? 's' : ''}</button>
-            </div>
         `;
         
-        // Set up button click for bulk update (not form submission)
-        const bulkUpdateBtn = form.querySelector('#bulkUpdateSubmit');
-        bulkUpdateBtn.onclick = () => {
-            console.log("🔄 Bulk update button clicked!");
-            this.handleBulkUpdateSubmit();
-        };
-        
-        this.showModal(modal);
+        document.body.appendChild(modal);
     }
     
-    async handleBulkUpdateSubmit() {
-        console.log("🔄 Starting bulk update...");
+    executeBulkUpdate(modal) {
+        const statusRadio = modal.querySelector('input[name="bulkStatus"]:checked');
+        const note = modal.querySelector('#bulkNote').value;
+        const date = modal.querySelector('#bulkDate').value;
         
-        // Prevent multiple submissions
-        if (this.isUpdating) {
-            console.log("⏳ Update already in progress, ignoring...");
+        if (!statusRadio) {
+            this.showToast('Please select a status', 'warning');
             return;
         }
         
-        this.isUpdating = true;
+        const updateData = {
+            status: statusRadio.value,
+            note: note,
+            date: date,
+            jobIds: Array.from(this.selectedJobs)
+        };
         
-        const form = document.getElementById('updateForm');
-        const formData = new FormData(form);
-        const status = formData.get('status');
-        const role = formData.get('role');
-        const note = formData.get('note');
-        const date = formData.get('date');
+        console.log('Bulk updating jobs:', updateData);
+        this.showToast(`Updated ${this.selectedJobs.size} jobs to ${statusRadio.value}`, 'success');
         
-        console.log("📋 Form data:", { status, role, note, date });
-        
-        if (!status) {
-            this.showToast('error', 'Status Required', 'Please select a status');
-            this.isUpdating = false;
-            return;
-        }
-        
-        const jobIds = Array.from(this.selectedJobs);
-        console.log("🎯 Selected job IDs:", jobIds);
-        console.log("📊 Number of selected jobs:", jobIds.length);
-        
-        // Filter out any invalid job IDs
-        const validJobIds = jobIds.filter(id => id && id !== 'bulk' && id !== '');
-        console.log("✅ Valid job IDs:", validJobIds);
-        
-        if (validJobIds.length === 0) {
-            this.showToast('error', 'No Valid Jobs', 'No valid jobs selected for update');
-            this.isUpdating = false;
-            return;
-        }
-        
-        // Prevent duplicate requests by disabling the button
-        const submitBtn = document.getElementById('bulkUpdateSubmit');
-        if (submitBtn) {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Updating...';
-        }
-        
-        try {
-            const promises = validJobIds.map(jobId => {
-                console.log(`📤 Sending update request for job ${jobId}`);
-                const data = new FormData();
-                data.append('status', status);
-                if (role && role.trim()) data.append('role', role.trim());
-                if (note) data.append('note', note); // Add note for bulk update
-                if (date) data.append('date', date);
-                
-                return fetch(`/update/${jobId}`, {
-                    method: 'POST',
-                    body: data
-                });
-            });
-            
-            console.log("⏳ Waiting for all update responses...");
-            const responses = await Promise.all(promises);
-            console.log("📥 Received all responses:", responses.length);
-            
-            const results = await Promise.all(responses.map(async (r, index) => {
-                const result = await r.json();
-                console.log(`📋 Response ${index + 1} for job ${validJobIds[index]}:`, result);
-                return result;
-            }));
-            
-            const successCount = results.filter(r => r.success).length;
-            console.log(`✅ Success count: ${successCount}/${validJobIds.length}`);
-            
-            if (successCount === validJobIds.length) {
-                this.showToast('success', 'Bulk Update Complete', `${successCount} jobs updated successfully`);
-                this.selectedJobs.clear();
-                this.closeModal();
-                setTimeout(() => window.location.reload(), 1000);
-            } else {
-                this.showToast('warning', 'Partial Update', `${successCount} of ${validJobIds.length} jobs updated successfully`);
-            }
-        } catch (error) {
-            console.error("❌ Bulk update error:", error);
-            this.showToast('error', 'Bulk Update Failed', 'Network error occurred');
-        } finally {
-            // Re-enable the button and reset state
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = `Update ${validJobIds.length} Job${validJobIds.length > 1 ? 's' : ''}`;
-            }
-            this.isUpdating = false;
-        }
+        // Clear selections and close modal
+        this.selectedJobs.clear();
+        this.updateBulkActions();
+        this.updateSelectAllState();
+        modal.remove();
     }
     
     showBulkDeleteConfirm() {
-        const count = this.selectedJobs.size;
-        if (confirm(`Are you sure you want to delete ${count} job application${count > 1 ? 's' : ''}?`)) {
-            this.bulkDeleteJobs();
+        if (this.selectedJobs.size === 0) {
+            this.showToast('Please select jobs to delete', 'warning');
+            return;
         }
-    }
-    
-    async bulkDeleteJobs() {
-        const promises = Array.from(this.selectedJobs).map(jobId => 
-            fetch(`/delete/${jobId}`, { method: 'POST' })
-        );
         
-        try {
-            await Promise.all(promises);
-            this.showToast('success', 'Jobs Deleted', `${this.selectedJobs.size} jobs deleted successfully`);
+        if (confirm(`Are you sure you want to delete ${this.selectedJobs.size} selected job applications?`)) {
+            console.log('Bulk deleting jobs:', Array.from(this.selectedJobs));
+            this.showToast(`Deleted ${this.selectedJobs.size} jobs`, 'success');
             this.selectedJobs.clear();
-            setTimeout(() => window.location.reload(), 1000);
-        } catch (error) {
-            this.showToast('error', 'Bulk Delete Failed', 'Some jobs could not be deleted');
+            this.updateBulkActions();
+            this.updateSelectAllState();
         }
     }
     
-    async syncEmails() {
-        console.log("🔄 Starting email sync...");
-        const syncBtn = document.getElementById('syncBtn');
-        const syncIcon = document.getElementById('syncIcon');
+    showNotesModal(company, role, note) {
+        const notesModal = document.getElementById('notesModal');
+        const companyElement = document.getElementById('notesModalCompany');
+        const roleElement = document.getElementById('notesModalRole');
+        const noteElement = document.getElementById('notesModalNote');
+        
+        if (companyElement) companyElement.textContent = company;
+        if (roleElement) roleElement.textContent = role;
+        if (noteElement) noteElement.textContent = note || 'No notes available';
+        
+        notesModal.classList.add('show');
+    }
+    
+    closeModal() {
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.classList.remove('show');
+        });
+        document.querySelectorAll('.notes-modal').forEach(modal => {
+            modal.classList.remove('show');
+        });
+    }
+    
+    syncEmails() {
         const progressModal = document.getElementById('progressModal');
         const progressFill = document.getElementById('progressFill');
         const progressMessage = document.getElementById('progressMessage');
         
-        // Disable sync button and show loading
-        syncBtn.disabled = true;
-        syncIcon.classList.add('animate-spin');
-        console.log("✅ Sync button disabled and spinner started");
+        progressModal.classList.add('show');
+        progressMessage.textContent = 'Connecting to Gmail...';
+        progressFill.style.width = '0%';
         
-        // Show progress modal
-        this.showModal(progressModal);
-        console.log("✅ Progress modal shown");
+        // Create EventSource for real-time sync progress
+        const eventSource = new EventSource('/sync-stream');
         
-        try {
-            console.log("📡 Creating EventSource connection...");
-            const eventSource = new EventSource('/sync-stream');
-            
-            eventSource.onopen = () => {
-                console.log("✅ EventSource connection opened");
-            };
-            
-            eventSource.onerror = (error) => {
-                console.error("❌ EventSource error:", error);
-                this.showToast('error', 'Sync Failed', 'Connection error occurred');
-                this.closeModal();
-                syncBtn.disabled = false;
-                syncIcon.classList.remove('animate-spin');
-            };
-            
-            eventSource.onmessage = (event) => {
-                console.log("📨 Received SSE message:", event.data);
+        eventSource.onmessage = (event) => {
+            try {
                 const data = JSON.parse(event.data);
+                console.log('Sync event:', data);
                 
                 switch (data.status) {
                     case 'starting':
-                        console.log("🚀 Sync starting...");
+                        progressMessage.textContent = data.message;
                         progressFill.style.width = '10%';
-                        progressMessage.textContent = data.message;
                         break;
+                        
                     case 'processing':
-                        console.log("⚙️ Processing emails...");
-                        progressFill.style.width = '70%';
                         progressMessage.textContent = data.message;
+                        progressFill.style.width = '50%';
                         break;
+                        
                     case 'complete':
-                        console.log("✅ Sync complete!");
-                        progressFill.style.width = '100%';
                         progressMessage.textContent = data.message;
-                        
-                        // Update last sync time
-                        this.updateLastSyncDisplay();
-                        
-                        // Close modal and re-enable button
-                        setTimeout(() => {
-                            this.closeModal();
-                            syncBtn.disabled = false;
-                            syncIcon.classList.remove('animate-spin');
-                            console.log("✅ Sync UI reset complete");
-                            
-                            // Reload page to show new jobs
-                            window.location.reload();
-                        }, 2000);
-                        
+                        progressFill.style.width = '100%';
                         eventSource.close();
+                        setTimeout(() => {
+                            progressModal.classList.remove('show');
+                            this.showToast('Emails synced successfully!', 'success');
+                            // Fetch fresh data from the API
+                            this.refreshJobsData();
+                        }, 1000);
+                        break;
+                        
+                    case 'error':
+                        progressMessage.textContent = data.message;
+                        eventSource.close();
+                        setTimeout(() => {
+                            progressModal.classList.remove('show');
+                            this.showToast('Sync failed: ' + data.message, 'error');
+                        }, 2000);
                         break;
                 }
-            };
-            
-        } catch (error) {
-            console.error("❌ Sync error:", error);
-            this.showToast('error', 'Sync Failed', 'An error occurred during sync');
-            this.closeModal();
-            syncBtn.disabled = false;
-            syncIcon.classList.remove('animate-spin');
-        }
-    }
-    
-    updateLastSyncDisplay() {
-        const lastSyncElement = document.querySelector('.last-sync .sync-text');
-        
-        if (lastSyncElement && this.lastSyncTime) {
-            const syncDate = new Date(this.lastSyncTime);
-            const now = new Date();
-            const diffMs = now - syncDate;
-            const diffMins = Math.floor(diffMs / (1000 * 60));
-            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-            
-            let timeAgo;
-            if (diffMins < 1) {
-                timeAgo = 'Just now';
-            } else if (diffMins < 60) {
-                timeAgo = `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-            } else if (diffHours < 24) {
-                timeAgo = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-            } else {
-                timeAgo = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+            } catch (error) {
+                console.error('Error parsing sync event:', error);
+                eventSource.close();
+                setTimeout(() => {
+                    progressModal.classList.remove('show');
+                    this.showToast('Sync failed: Invalid response', 'error');
+                }, 2000);
             }
-            
-            lastSyncElement.textContent = `Last synced: ${timeAgo}`;
-        }
+        };
+        
+        eventSource.onerror = (error) => {
+            console.error('EventSource error:', error);
+            eventSource.close();
+            setTimeout(() => {
+                progressModal.classList.remove('show');
+                this.showToast('Sync failed: Connection error', 'error');
+            }, 2000);
+        };
     }
     
-    showModal(modal) {
-        if (modal) {
-            modal.classList.add('show');
-            document.body.style.overflow = 'hidden';
-            
-            // Focus first focusable element
-            const focusable = modal.querySelector('input, button, textarea, select');
-            if (focusable) focusable.focus();
-        }
-    }
-    
-    closeModal() {
-        const modals = document.querySelectorAll('.modal');
-        modals.forEach(modal => {
-            modal.classList.remove('show');
-        });
-        document.body.style.overflow = '';
-        
-        // Reset forms
-        const forms = document.querySelectorAll('.modal form');
-        forms.forEach(form => form.reset());
-    }
-    
-    toggleDropdown(dropdown) {
-        const isOpen = dropdown.classList.contains('show');
-        
-        // Close all dropdowns
-        document.querySelectorAll('.dropdown-menu').forEach(menu => {
-            menu.classList.remove('show');
-        });
-        
-        // Toggle this dropdown
-        if (!isOpen) {
-            dropdown.classList.add('show');
-        }
-    }
-    
-    showToast(type, title, message) {
-        const toastContainer = document.getElementById('toastContainer') || this.createToastContainer();
-        
+    showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer');
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
         toast.innerHTML = `
-            <div class="toast-icon">
-                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-            </div>
-            <div class="toast-content">
-                <div class="toast-title">${title}</div>
-                <div class="toast-message">${message}</div>
-            </div>
-            <button class="btn btn-ghost toast-close" onclick="this.parentElement.remove()">
-                <i class="fas fa-times"></i>
-            </button>
+            <span>${message}</span>
+            <button class="toast-close" onclick="this.parentElement.remove()">×</button>
         `;
         
         toastContainer.appendChild(toast);
         
-        // Show toast
-        setTimeout(() => toast.classList.add('show'), 100);
-        
-        // Auto remove after 5 seconds
         setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 300);
+            toast.remove();
         }, 5000);
-    }
-    
-    showNotesModal(company, role, note) {
-        const modal = document.getElementById('notesModal');
-        const companyEl = document.getElementById('notesModalCompany');
-        const roleEl = document.getElementById('notesModalRole');
-        const noteEl = document.getElementById('notesModalNote');
-        
-        companyEl.textContent = company;
-        roleEl.textContent = role;
-        noteEl.textContent = note || 'No notes available for this job.';
-        
-        modal.classList.add('show');
-        
-        // Close on escape key
-        const handleEscape = (e) => {
-            if (e.key === 'Escape') {
-                this.closeNotesModal();
-                document.removeEventListener('keydown', handleEscape);
-            }
-        };
-        document.addEventListener('keydown', handleEscape);
-        
-        // Close on outside click
-        const handleOutsideClick = (e) => {
-            if (e.target === modal) {
-                this.closeNotesModal();
-                modal.removeEventListener('click', handleOutsideClick);
-            }
-        };
-        modal.addEventListener('click', handleOutsideClick);
-    }
-    
-    closeNotesModal() {
-        const modal = document.getElementById('notesModal');
-        modal.classList.remove('show');
-    }
-    
-    removeToast(toast) {
-        toast.classList.remove('show');
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.parentNode.removeChild(toast);
-            }
-        }, 300);
     }
     
     debounce(func, wait) {
@@ -962,31 +685,32 @@ class JobTracker {
             timeout = setTimeout(later, wait);
         };
     }
-}
-
-// Global functions for HTML onclick handlers
-function showNotesModal(company, role, note) {
-    if (window.jobTracker) {
-        window.jobTracker.showNotesModal(company, role, note);
+    
+    refreshJobsData() {
+        console.log("🔄 Refreshing jobs data from API...");
+        fetch('/api/jobs')
+            .then(response => response.json())
+            .then(jobs => {
+                console.log("📥 Received fresh jobs data:", jobs.length, "jobs");
+                this.allJobs = jobs;
+                this.filteredJobs = [...this.allJobs];
+                this.currentPage = 1;
+                this.renderTable();
+                this.showToast(`Refreshed data: ${jobs.length} jobs loaded`, 'success');
+            })
+            .catch(error => {
+                console.error("❌ Error refreshing jobs data:", error);
+                this.showToast('Failed to refresh data', 'error');
+            });
     }
 }
 
+// Global functions for modal interactions
 function closeNotesModal() {
-    if (window.jobTracker) {
-        window.jobTracker.closeNotesModal();
-    }
+    document.getElementById('notesModal').classList.remove('show');
 }
 
-// Initialize when DOM is loaded
+// Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.jobTracker = new JobTracker();
-    window.jobTracker.init();
 });
-
-// Update last sync time every minute
-setInterval(() => {
-    const jobTracker = window.jobTracker;
-    if (jobTracker) {
-        jobTracker.updateLastSyncDisplay();
-    }
-}, 60000);

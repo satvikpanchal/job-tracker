@@ -121,8 +121,8 @@
                                 {% endif %}
                             </span>
                         </td>
-                        <td class="date-cell">{{ job.applied_date or 'N/A' }}</td>
-                        <td class="date-cell">{{ job.last_update or 'N/A' }}</td>
+                        <td class="date-cell">{{ job.applied_date_formatted or 'N/A' }}</td>
+                        <td class="date-cell">{{ job.last_update_formatted or 'N/A' }}</td>
                         <td class="notes-cell" data-company="{{ job.company }}" data-role="{{ job.role }}" data-note="{{ job.note or '' }}">
                             {% if job.note %}
                                 <span class="note-text">{{ job.note[:20] }}{% if job.note|length > 20 %}...{% endif %}</span>
@@ -165,12 +165,15 @@
                 <span id="paginationInfo">Showing 1-10 of 10 jobs</span>
             </div>
             <div class="pagination-controls">
-                <label for="pageSize">Show:</label>
-                <select id="pageSize">
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                </select>
+                <div class="page-size-selector">
+                    <label for="pageSize">Show:</label>
+                    <select id="pageSize">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                    <span>jobs per page</span>
+                </div>
                 <div class="pagination-buttons">
                     <button class="btn btn-ghost btn-sm" id="prevPage" disabled>
                         <i class="fas fa-chevron-left"></i>
@@ -216,8 +219,8 @@
         <div class="job-card-body">
             <p class="job-role">{{ job.role }}</p>
             <div class="job-dates">
-                <span>Applied: {{ job.applied_date or 'N/A' }}</span>
-                <span>Updated: {{ job.last_update or 'N/A' }}</span>
+                <span>Applied: {{ job.applied_date_formatted or 'N/A' }}</span>
+                <span>Updated: {{ job.last_update_formatted or 'N/A' }}</span>
             </div>
         </div>
         <div class="job-card-actions">
