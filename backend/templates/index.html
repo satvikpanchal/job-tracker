@@ -1,6 +1,34 @@
 {% extends "layout.html" %}
 
 {% block content %}
+<!-- Classifier Status -->
+<section class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <i class="fas fa-robot"></i>
+            AI Classifier Status
+        </h2>
+    </div>
+    <div class="card-body">
+        <div class="classifier-info">
+            <div class="classifier-status" id="classifierStatus">
+                <span class="status-indicator">Loading...</span>
+                <span class="classifier-type" id="classifierType">Unknown</span>
+            </div>
+            <div class="classifier-controls">
+                <button class="btn btn-outline btn-sm" onclick="checkClassifierStatus()">
+                    <i class="fas fa-sync"></i>
+                    Check Status
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="switchClassifier()">
+                    <i class="fas fa-exchange-alt"></i>
+                    Switch Classifier
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- Add New Job -->
 <section class="card">
     <div class="card-header">
@@ -86,29 +114,29 @@
             <table class="jobs-table" id="jobsTable">
                 <thead>
                     <tr>
-                        <th>
+                        <th class="px-4 py-2">
                             <input type="checkbox" id="selectAll" aria-label="Select all jobs">
                         </th>
-                        <th>Company</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Applied On</th>
-                        <th>Last Update</th>
-                        <th>Notes</th>
-                        <th>Actions</th>
+                        <th class="px-4 py-2">Company</th>
+                        <th class="px-4 py-2">Role</th>
+                        <th class="px-4 py-2">Status</th>
+                        <th class="px-4 py-2">Applied On</th>
+                        <th class="px-4 py-2">Last Update</th>
+                        <th class="px-4 py-2">Notes</th>
+                        <th class="text-center px-4 py-2 rounded-tr-2xl min-w-[110px]">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="jobsTableBody">
                     {% for job in jobs %}
                     <tr data-job-id="{{ job.id }}" data-status="{{ job.status }}">
-                        <td>
+                        <td class="px-4 py-2">
                             <input type="checkbox" class="job-checkbox" value="{{ job.id }}">
                         </td>
-                        <td class="company-cell">
+                        <td class="company-cell px-4 py-2">
                             <div class="company-name">{{ job.company }}</div>
                         </td>
-                        <td class="role-cell">{{ job.role }}</td>
-                        <td class="status-cell">
+                        <td class="role-cell px-4 py-2">{{ job.role }}</td>
+                        <td class="status-cell px-4 py-2">
                             <span class="status-badge status-{{ job.status }}">
                                 {% if job.status == 'applied' %}
                                     <i class="fas fa-paper-plane"></i> Applied
@@ -121,16 +149,16 @@
                                 {% endif %}
                             </span>
                         </td>
-                        <td class="date-cell">{{ job.applied_date_formatted or 'N/A' }}</td>
-                        <td class="date-cell">{{ job.last_update_formatted or 'N/A' }}</td>
-                        <td class="notes-cell" data-company="{{ job.company }}" data-role="{{ job.role }}" data-note="{{ job.note or '' }}">
+                        <td class="date-cell px-4 py-2">{{ job.applied_date_formatted or 'N/A' }}</td>
+                        <td class="date-cell px-4 py-2">{{ job.last_update_formatted or 'N/A' }}</td>
+                        <td class="notes-cell px-4 py-2" data-company="{{ job.company }}" data-role="{{ job.role }}" data-note="{{ job.note or '' }}">
                             {% if job.note %}
                                 <span class="note-text">{{ job.note[:20] }}{% if job.note|length > 20 %}...{% endif %}</span>
                             {% else %}
                                 —
                             {% endif %}
                         </td>
-                        <td class="actions-cell">
+                        <td class="actions-cell text-center px-4 py-2 min-w-[110px]">
                             <button class="btn btn-ghost btn-sm update-btn" data-job-id="{{ job.id }}" data-company="{{ job.company }}" data-role="{{ job.role }}" data-status="{{ job.status }}" aria-label="Update {{ job.company }}">
                                 <i class="fas fa-edit"></i>
                             </button>
@@ -142,7 +170,7 @@
                     {% endfor %}
                 </tbody>
             </table>
-        </div>
+        </div>        
         
         <!-- Bulk Actions -->
         <div class="bulk-actions" id="bulkActions" style="display: none;">
@@ -251,6 +279,62 @@
             <div class="notes-modal-company" id="notesModalCompany"></div>
             <div class="notes-modal-role" id="notesModalRole"></div>
             <div class="notes-modal-note" id="notesModalNote"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Classifier Selection Modal -->
+<div id="classifierModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2><i class="fas fa-robot"></i> Select Classifier</h2>
+            <span class="close" onclick="closeClassifierModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="classifier-options">
+                <div class="classifier-option" data-type="slm">
+                    <div class="classifier-header">
+                        <i class="fas fa-server"></i>
+                        <h3>Local Small Language Model (SLM)</h3>
+                        <span class="status-badge status-success" id="slmStatus">Available</span>
+                    </div>
+                    <div class="classifier-details">
+                        <p><strong>Model:</strong> 
+                            <select id="slmModelSelect" class="model-select">
+                                <option value="">Loading models...</option>
+                            </select>
+                            <span class="current-model" id="currentModelDisplay"></span>
+                        </p>
+                        <p><strong>Base URL:</strong> <span id="slmUrl">http://localhost:11434</span></p>
+                        <p><strong>Available Models:</strong> <span id="slmModels">Loading...</span></p>
+                        <p class="description">Fast, local inference with no API costs. Runs on your machine.</p>
+                    </div>
+                </div>
+                
+                <div class="classifier-option" data-type="gemini">
+                    <div class="classifier-header">
+                        <i class="fas fa-cloud"></i>
+                        <h3>Google Gemini</h3>
+                        <span class="status-badge status-info" id="geminiStatus">Available</span>
+                    </div>
+                    <div class="classifier-details">
+                        <p><strong>API Key:</strong> <span id="geminiKey">Configured</span></p>
+                        <p><strong>Model:</strong> Gemini Pro</p>
+                        <p class="description">High-quality cloud-based AI with excellent accuracy.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="classifier-actions">
+                <button class="btn btn-primary" onclick="applyClassifierSelection()">
+                    <i class="fas fa-check"></i>
+                    Apply Selection
+                </button>
+                <button class="btn btn-outline" onclick="closeClassifierModal()">
+                    <i class="fas fa-times"></i>
+                    Cancel
+                </button>
+            </div>
         </div>
     </div>
 </div>

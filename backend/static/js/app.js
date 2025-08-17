@@ -8,6 +8,7 @@ class JobTracker {
         this.pageSize = 10;
         this.isUpdating = false;
         this.lastSyncTime = localStorage.getItem('lastSyncTime');
+        this.selectedSLMModel = null; // Track selected SLM model
         
         this.init();
     }
@@ -18,6 +19,18 @@ class JobTracker {
         this.setupTheme();
         this.setupResponsive();
         this.loadJobs();
+        
+        // Check if classifier elements exist before calling
+        const statusElement = document.getElementById('classifierStatus');
+        const typeElement = document.getElementById('classifierType');
+        console.log('🔍 Classifier elements found:', { statusElement, typeElement });
+        
+        if (statusElement && typeElement) {
+            this.checkClassifierStatus(); // Check classifier status on init
+        } else {
+            console.warn('⚠️ Classifier elements not found during init');
+        }
+        
         console.log("✅ JobTracker initialization complete");
     }
     
@@ -231,29 +244,22 @@ class JobTracker {
     }
     
     loadJobs() {
-        console.log("📥 Loading jobs from HTML...");
-        // Extract jobs from the table
-        const rows = document.querySelectorAll('#jobsTableBody tr');
-        console.log("📋 Found table rows:", rows.length);
-        
-        this.allJobs = Array.from(rows).map((row, index) => {
-            const jobData = {
-                id: row.dataset.jobId,
-                company: row.querySelector('.company-name')?.textContent || '',
-                role: row.querySelector('.role-cell')?.textContent || '',
-                status: row.dataset.status,
-                appliedDate: row.querySelector('.date-cell')?.textContent || '',
-                lastUpdate: row.querySelectorAll('.date-cell')[1]?.textContent || ''
-            };
-            console.log(`📋 Job ${index + 1}:`, jobData);
-            return jobData;
-        });
-        
-        console.log("📊 Total jobs loaded:", this.allJobs.length);
-        console.log("🆔 Job IDs:", this.allJobs.map(job => job.id));
-        
-        this.filteredJobs = [...this.allJobs];
-        this.renderTable();
+        console.log("📥 Loading jobs from API...");
+        // Load jobs from the API instead of HTML
+        fetch('/api/jobs')
+            .then(response => response.json())
+            .then(jobs => {
+                console.log("📥 Received jobs data:", jobs.length, "jobs");
+                this.allJobs = jobs;
+                this.filteredJobs = [...this.allJobs];
+                this.currentPage = 1;
+                this.renderTable();
+                console.log("✅ Jobs loaded and table rendered");
+            })
+            .catch(error => {
+                console.error("❌ Error loading jobs:", error);
+                this.showToast('Failed to load jobs', 'error');
+            });
     }
     
     handleSearch(query) {
@@ -297,28 +303,173 @@ class JobTracker {
         const endIndex = startIndex + this.pageSize;
         const pageJobs = this.filteredJobs.slice(startIndex, endIndex);
         
-        // Update table visibility
-        const tableBody = document.getElementById('jobsTableBody');
-        const rows = tableBody?.querySelectorAll('tr');
+        // Show/hide table container and empty state based on whether we have jobs
+        const tableContainer = document.querySelector('.table-container');
+        const emptyState = document.querySelector('.empty-state');
+        const bulkActions = document.getElementById('bulkActions');
+        const paginationContainer = document.querySelector('.pagination-container');
         
-        if (rows) {
-            rows.forEach((row, index) => {
-                const jobId = row.dataset.jobId;
-                const shouldShow = pageJobs.some(job => job.id === jobId);
-                row.style.display = shouldShow ? '' : 'none';
+        if (this.allJobs.length === 0) {
+            // No jobs - show empty state, hide table
+            if (tableContainer) tableContainer.style.display = 'none';
+            if (emptyState) emptyState.style.display = 'block';
+            if (bulkActions) bulkActions.style.display = 'none';
+            if (paginationContainer) paginationContainer.style.display = 'none';
+            return;
+        } else {
+            // Have jobs - show table, hide empty state
+            if (tableContainer) tableContainer.style.display = 'block';
+            if (emptyState) emptyState.style.display = 'none';
+            if (paginationContainer) paginationContainer.style.display = 'flex';
+        }
+        
+        // Rebuild table body with current data
+        const tableBody = document.getElementById('jobsTableBody');
+        if (tableBody) {
+            tableBody.innerHTML = '';
+            
+            pageJobs.forEach(job => {
+                const row = document.createElement('tr');
+                row.dataset.jobId = job.id;
+                row.dataset.status = job.status;
+                
+                // Create status badge HTML
+                const statusBadge = this.getStatusBadgeHtml(job.status);
+                
+                // Create notes display
+                const notesDisplay = job.note ? 
+                    `<span class="note-text">${job.note.length > 20 ? job.note.substring(0, 20) + '...' : job.note}</span>` : 
+                    '—';
+                
+                row.innerHTML = `
+                    <td>
+                        <input type="checkbox" class="job-checkbox" value="${job.id}">
+                    </td>
+                    <td class="company-cell">
+                        <div class="company-name">${job.company}</div>
+                    </td>
+                    <td class="role-cell">${job.role}</td>
+                    <td class="status-cell">
+                        ${statusBadge}
+                    </td>
+                    <td class="date-cell">${job.applied_date || 'N/A'}</td>
+                    <td class="date-cell">${job.last_update || 'N/A'}</td>
+                    <td class="notes-cell" data-company="${job.company}" data-role="${job.role}" data-note="${job.note || ''}">
+                        ${notesDisplay}
+                    </td>
+                    <td class="actions-cell">
+                        <button class="btn btn-ghost btn-sm update-btn" data-job-id="${job.id}" data-company="${job.company}" data-role="${job.role}" data-status="${job.status}" aria-label="Update ${job.company}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-ghost btn-sm btn-danger delete-btn" data-job-id="${job.id}" data-company="${job.company}" aria-label="Delete ${job.company}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
             });
+            
+            // Reattach event listeners
+            this.attachRowEventListeners();
         }
         
         // Update mobile cards
-        const mobileCards = document.querySelectorAll('.job-card');
-        mobileCards.forEach(card => {
-            const jobId = card.dataset.jobId;
-            const shouldShow = pageJobs.some(job => job.id === jobId);
-            card.style.display = shouldShow ? '' : 'none';
-        });
+        this.renderMobileCards(pageJobs);
         
         this.updatePaginationInfo();
         this.updatePaginationButtons();
+    }
+    
+    getStatusBadgeHtml(status) {
+        const statusConfig = {
+            'applied': { icon: 'fa-paper-plane', text: 'Applied', class: 'status-applied' },
+            'interview': { icon: 'fa-calendar-alt', text: 'Interview', class: 'status-interview' },
+            'offer': { icon: 'fa-trophy', text: 'Offer', class: 'status-offer' },
+            'rejected': { icon: 'fa-times-circle', text: 'Rejected', class: 'status-rejected' }
+        };
+        
+        const config = statusConfig[status] || statusConfig['applied'];
+        return `<span class="status-badge ${config.class}">
+            <i class="fas ${config.icon}"></i> ${config.text}
+        </span>`;
+    }
+    
+    renderMobileCards(jobs) {
+        const mobileCardsContainer = document.getElementById('mobileCards');
+        if (mobileCardsContainer) {
+            mobileCardsContainer.innerHTML = '';
+            
+            jobs.forEach(job => {
+                const card = document.createElement('div');
+                card.className = 'job-card';
+                card.dataset.jobId = job.id;
+                card.dataset.status = job.status;
+                
+                const statusBadge = this.getStatusBadgeHtml(job.status);
+                
+                card.innerHTML = `
+                    <div class="job-card-header">
+                        <h3>${job.company}</h3>
+                        ${statusBadge}
+                    </div>
+                    <div class="job-card-body">
+                        <div class="job-role">${job.role}</div>
+                        <div class="job-dates">
+                            <span>Applied: ${job.applied_date || 'N/A'}</span>
+                            <span>Updated: ${job.last_update || 'N/A'}</span>
+                        </div>
+                    </div>
+                    <div class="job-card-actions">
+                        <button class="btn btn-ghost btn-sm update-btn" data-job-id="${job.id}" data-company="${job.company}" data-role="${job.role}" data-status="${job.status}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-ghost btn-sm btn-danger delete-btn" data-job-id="${job.id}" data-company="${job.company}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                
+                mobileCardsContainer.appendChild(card);
+            });
+        }
+    }
+    
+    attachRowEventListeners() {
+        // Reattach checkbox listeners
+        document.querySelectorAll('.job-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => this.handleJobSelect(e.target));
+        });
+        
+        // Reattach update button listeners
+        document.querySelectorAll('.update-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const jobId = e.target.closest('button').dataset.jobId;
+                const company = e.target.closest('button').dataset.company;
+                const role = e.target.closest('button').dataset.role;
+                const status = e.target.closest('button').dataset.status;
+                this.showUpdateModal({ id: jobId, company, role, status });
+            });
+        });
+        
+        // Reattach delete button listeners
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const jobId = e.target.closest('button').dataset.jobId;
+                const company = e.target.closest('button').dataset.company;
+                this.showDeleteConfirm(jobId, company);
+            });
+        });
+        
+        // Reattach notes cell listeners
+        document.querySelectorAll('.notes-cell').forEach(cell => {
+            cell.addEventListener('click', (e) => {
+                const company = e.target.dataset.company;
+                const role = e.target.dataset.role;
+                const note = e.target.dataset.note;
+                this.showNotesModal(company, role, note);
+            });
+        });
     }
     
     updatePaginationInfo() {
@@ -674,6 +825,254 @@ class JobTracker {
         }, 5000);
     }
     
+    // Classifier methods
+    async checkClassifierStatus() {
+        try {
+            console.log('🔍 Checking classifier status...');
+            console.log('📡 Making request to /classifier/status...');
+            const response = await fetch('/classifier/status');
+            console.log('📡 Response received:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log('📊 Response data:', data);
+            
+            const statusElement = document.getElementById('classifierStatus');
+            const typeElement = document.getElementById('classifierType');
+            
+            if (!statusElement || !typeElement) {
+                console.error('❌ DOM elements not found:', { statusElement, typeElement });
+                return;
+            }
+            
+            if (data.success) {
+                typeElement.textContent = data.classifier_type.toUpperCase();
+                
+                if (data.classifier_type === 'slm') {
+                    const status = data.status;
+                    if (status.ollama_running) {
+                        statusElement.innerHTML = `
+                            <span class="status-indicator status-success">
+                                <i class="fas fa-check-circle"></i>
+                                SLM Running (${status.current_model})
+                            </span>
+                        `;
+                        console.log('✅ SLM status updated successfully');
+                    } else {
+                        statusElement.innerHTML = `
+                            <span class="status-indicator status-error">
+                                <i class="fas fa-times-circle"></i>
+                                SLM Not Running
+                            </span>
+                        `;
+                        console.log('❌ SLM not running');
+                    }
+                } else {
+                    statusElement.innerHTML = `
+                        <span class="status-indicator status-success">
+                            <i class="fas fa-check-circle"></i>
+                            Gemini Active
+                        </span>
+                    `;
+                    console.log('✅ Gemini status updated successfully');
+                }
+            } else {
+                statusElement.innerHTML = `
+                    <span class="status-indicator status-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        ${data.message}
+                    </span>
+                `;
+                typeElement.textContent = 'ERROR';
+                console.log('❌ Backend returned error:', data.message);
+            }
+        } catch (error) {
+            console.error('❌ Error checking classifier status:', error);
+            
+            // Try to get the status element
+            const statusElement = document.getElementById('classifierStatus');
+            if (statusElement) {
+                statusElement.innerHTML = `
+                    <span class="status-indicator status-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Error: ${error.message}
+                    </span>
+                `;
+            } else {
+                console.error('❌ Could not find status element to update');
+            }
+        }
+    }
+    
+    async switchClassifier() {
+        console.log('🔄 Switch classifier called...');
+        this.openClassifierModal();
+    }
+    
+    openClassifierModal() {
+        console.log('🔍 Opening classifier modal...');
+        const modal = document.getElementById('classifierModal');
+        if (modal) {
+            modal.classList.add('show');
+            this.populateClassifierModal();
+            this.setupClassifierModalEvents();
+        } else {
+            console.error('❌ Classifier modal not found');
+        }
+    }
+    
+    setupClassifierModalEvents() {
+        // Make classifier options clickable
+        document.querySelectorAll('.classifier-option').forEach(option => {
+            option.addEventListener('click', () => {
+                this.selectClassifierOption(option.dataset.type);
+            });
+        });
+    }
+    
+    async populateClassifierModal() {
+        console.log('📊 Populating classifier modal...');
+        
+        try {
+            // Get current classifier status
+            const response = await fetch('/classifier/status');
+            const data = await response.json();
+            console.log('📡 Modal data received:', data);
+            
+            if (data.success) {
+                const currentType = data.classifier_type;
+                console.log('🎯 Current classifier type:', currentType);
+                
+                // Update SLM details
+                if (data.classifier_type === 'slm' && data.status) {
+                    console.log('🤖 Updating SLM details:', data.status);
+                    const slmModel = document.getElementById('slmModel');
+                    const slmUrl = document.getElementById('slmUrl');
+                    const slmModels = document.getElementById('slmModels');
+                    const slmStatus = document.getElementById('slmStatus');
+                    const slmModelSelect = document.getElementById('slmModelSelect');
+                    
+                    if (slmUrl) slmUrl.textContent = data.status.base_url;
+                    if (slmModels) slmModels.textContent = data.status.available_models.join(', ');
+                    
+                    // Populate model selection dropdown
+                    if (slmModelSelect) {
+                        this.populateModelDropdown(slmModelSelect, data.status.available_models, data.status.current_model);
+                    }
+                    
+                    if (data.status.ollama_running) {
+                        if (slmStatus) {
+                            slmStatus.textContent = 'Running';
+                            slmStatus.className = 'status-badge status-success';
+                        }
+                    } else {
+                        if (slmStatus) {
+                            slmStatus.textContent = 'Not Running';
+                            slmStatus.className = 'status-badge status-error';
+                        }
+                    }
+                }
+                
+                // Update Gemini details
+                const geminiStatus = document.getElementById('geminiStatus');
+                if (geminiStatus) {
+                    if (currentType === 'gemini') {
+                        geminiStatus.textContent = 'Active';
+                        geminiStatus.className = 'status-badge status-success';
+                    } else {
+                        geminiStatus.textContent = 'Available';
+                        geminiStatus.className = 'status-badge status-info';
+                    }
+                }
+                
+                // Mark current classifier as selected
+                this.selectClassifierOption(currentType);
+                console.log('✅ Modal populated successfully');
+                
+            } else {
+                console.error('❌ Failed to get classifier status:', data.message);
+            }
+            
+        } catch (error) {
+            console.error('❌ Error populating modal:', error);
+        }
+    }
+    
+    selectClassifierOption(classifierType) {
+        console.log('🎯 Selecting classifier:', classifierType);
+        
+        // Remove previous selection
+        document.querySelectorAll('.classifier-option').forEach(option => {
+            option.classList.remove('selected');
+        });
+        
+        // Select current classifier
+        const currentOption = document.querySelector(`[data-type="${classifierType}"]`);
+        if (currentOption) {
+            currentOption.classList.add('selected');
+            console.log('✅ Selected option:', classifierType);
+        } else {
+            console.error('❌ Could not find option for:', classifierType);
+        }
+    }
+    
+    async applyClassifierSelection() {
+        const selectedOption = document.querySelector('.classifier-option.selected');
+        if (!selectedOption) {
+            alert('Please select a classifier first');
+            return;
+        }
+        
+        const newType = selectedOption.dataset.type;
+        const currentType = document.getElementById('classifierType').textContent.toLowerCase();
+        
+        if (newType === currentType) {
+            alert('This classifier is already active');
+            return;
+        }
+        
+        // If switching to SLM, include the selected model
+        let requestBody = { classifier_type: newType };
+        if (newType === 'slm' && this.selectedSLMModel) {
+            requestBody.model_name = this.selectedSLMModel;
+            console.log('🤖 Switching to SLM with model:', this.selectedSLMModel);
+        }
+        
+        if (confirm(`Switch from ${currentType.toUpperCase()} to ${newType.toUpperCase()}? You'll need to restart the application to apply changes.`)) {
+            try {
+                const response = await fetch('/classifier/switch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    alert(data.message);
+                    this.closeClassifierModal();
+                    this.checkClassifierStatus();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error switching classifier:', error);
+                alert('Error switching classifier');
+            }
+        }
+    }
+    
+    closeClassifierModal() {
+        const modal = document.getElementById('classifierModal');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+    }
+    
     debounce(func, wait) {
         let timeout;
         return function executedFunction(...args) {
@@ -703,11 +1102,137 @@ class JobTracker {
                 this.showToast('Failed to refresh data', 'error');
             });
     }
+
+    populateModelDropdown(selectElement, availableModels, currentModel) {
+        console.log('📋 Populating model dropdown with:', availableModels, 'current:', currentModel);
+        
+        // Clear existing options
+        selectElement.innerHTML = '';
+        
+        // Group models by type for better organization
+        const modelGroups = this.groupModelsByType(availableModels);
+        
+        // Add grouped models to dropdown
+        Object.entries(modelGroups).forEach(([groupName, models]) => {
+            // Add group header
+            const groupOption = document.createElement('option');
+            groupOption.value = '';
+            groupOption.textContent = `── ${groupName} ──`;
+            groupOption.disabled = true;
+            selectElement.appendChild(groupOption);
+            
+            // Add models in this group
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = this.getModelDisplayName(model);
+                
+                // Mark current model as selected
+                if (model === currentModel) {
+                    option.selected = true;
+                    this.selectedSLMModel = currentModel;
+                    this.updateModelSelectionUI(currentModel);
+                }
+                
+                selectElement.appendChild(option);
+            });
+        });
+        
+        // Add change event listener
+        selectElement.addEventListener('change', (e) => {
+            const selectedModel = e.target.value;
+            if (selectedModel) { // Only update if a valid model is selected
+                console.log('🔄 Model selection changed to:', selectedModel);
+                this.updateSelectedModel(selectedModel);
+            }
+        });
+        
+        console.log('✅ Model dropdown populated with', availableModels.length, 'models');
+    }
+    
+    groupModelsByType(models) {
+        const groups = {};
+        
+        models.forEach(model => {
+            let groupName = 'Other';
+            
+            if (model.includes('mistral')) {
+                groupName = 'Mistral Models';
+            } else if (model.includes('llama') || model.includes('codellama')) {
+                groupName = 'Llama Models';
+            } else if (model.includes('gemma')) {
+                groupName = 'Gemma Models';
+            } else if (model.includes('gpt')) {
+                groupName = 'GPT Models';
+            }
+            
+            if (!groups[groupName]) {
+                groups[groupName] = [];
+            }
+            groups[groupName].push(model);
+        });
+        
+        return groups;
+    }
+    
+    getModelDisplayName(model) {
+        // Make model names more readable
+        return model
+            .replace('mistral:', 'Mistral ')
+            .replace('llama2:', 'Llama2 ')
+            .replace('codellama:', 'CodeLlama ')
+            .replace('gemma3:', 'Gemma3 ')
+            .replace('gpt-oss:', 'GPT-OSS ')
+            .replace('-q4_K_M', ' (Quantized)')
+            .replace('-instruct', ' (Instruct)');
+    }
+    
+    updateSelectedModel(modelName) {
+        console.log('🔄 Updating selected model to:', modelName);
+        // Store the selected model for when applying the selection
+        this.selectedSLMModel = modelName;
+        
+        // Update the UI to show the selected model
+        this.updateModelSelectionUI(modelName);
+    }
+    
+    updateModelSelectionUI(modelName) {
+        // Update the current model display
+        const currentModelDisplay = document.getElementById('currentModelDisplay');
+        if (currentModelDisplay) {
+            currentModelDisplay.textContent = `Currently: ${modelName}`;
+        }
+    }
 }
 
 // Global functions for modal interactions
 function closeNotesModal() {
     document.getElementById('notesModal').classList.remove('show');
+}
+
+// Global functions for classifier controls
+function checkClassifierStatus() {
+    if (window.jobTracker) {
+        window.jobTracker.checkClassifierStatus();
+    }
+}
+
+function switchClassifier() {
+    if (window.jobTracker) {
+        window.jobTracker.switchClassifier();
+    }
+}
+
+function closeClassifierModal() {
+    if (window.jobTracker) {
+        window.jobTracker.closeClassifierModal();
+    }
+}
+
+function applyClassifierSelection() {
+    if (window.jobTracker) {
+        window.jobTracker.applyClassifierSelection();
+    }
 }
 
 // Initialize the app when DOM is loaded
